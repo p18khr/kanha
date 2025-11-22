@@ -32,7 +32,16 @@ git push -u origin main
   - `SMTP_USER` = your gmail address (or SMTP username)
   - `SMTP_PASS` = your app-specific password or SMTP password
 
-Note: For Gmail you should create an App Password (if using 2FA) or use a proper transactional mail provider (SendGrid, Mailgun) for production.
+  Note: For Gmail you should create an App Password (if using 2FA) or use a proper transactional mail provider for production.
+
+  Recommended: Use SendGrid (simpler & more reliable)
+
+  - Create a SendGrid account and generate an API key.
+  - In Render environment variables add:
+    - `SENDGRID_API_KEY` = your SendGrid API key
+    - `SENDGRID_SENDER` = a verified sender email (e.g. `no-reply@yourdomain.com`)
+
+  The server will prefer SendGrid if `SENDGRID_API_KEY` is set; otherwise it falls back to SMTP using `SMTP_USER`/`SMTP_PASS`.
 
 4) Confirm build output and static serving
 

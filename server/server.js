@@ -1,5 +1,6 @@
 import express from "express";
 import nodemailer from "nodemailer";
+import sgMail from "@sendgrid/mail";
 import bodyParser from "body-parser";
 import cors from "cors";
 import path from "path";
@@ -25,6 +26,34 @@ app.post("/send", async (req, res) => {
   }
 
   try {
+    // Prefer SendGrid if an API key is provided (recommended for production)
+    const sendGridKey = process.env.SENDGRID_API_KEY;
+    if (sendGridKey) {
+      sgMail.setApiKey(sendGridKey);
+      const fromAddress = process.env.SENDGRID_SENDER || process.env.SMTP_USER || 'no-reply@kanhasafaribooking.in';
+      const msg = {
+        to: "gojungleeadventures@gmail.com",
+        from: fromAddress,
+        replyTo: email,
+        subject: `New Visitor Entry from ${name}`,
+        html: `
+          <h2>Visitor Details</h2>
+          <p><strong>Name:</strong> ${name}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Mobile Number:</strong> ${number}</p>
+          <p><strong>Date of Visit:</strong> ${date}</p>
+        `,
+      };
+
+      try {
+        const resp = await sgMail.send(msg);
+        console.log('SendGrid send response:', resp && resp[0] && resp[0].statusCode ? resp[0].statusCode : resp);
+        return res.json({ message: 'Email sent successfully!' });
+      } catch (sgErr) {
+        console.error('SendGrid error:', sgErr && sgErr.message ? sgErr.message : sgErr);
+        // fall through to attempt SMTP if configured
+      }
+    }
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASS;
 
