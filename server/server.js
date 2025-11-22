@@ -17,6 +17,7 @@ const clientBuildPath = path.join(__dirname, "..", "client", "build");
 app.use(express.static(clientBuildPath));
 
 app.post("/send", async (req, res) => {
+  console.log('/send called with body:', req.body);
   const { name, email, number, date } = req.body;
 
   if (!name || !email || !number || !date) {
@@ -38,7 +39,17 @@ app.post("/send", async (req, res) => {
         user: smtpUser,
         pass: smtpPass,
       },
+      logger: true,
+      debug: true,
     });
+
+    try {
+      await transporter.verify();
+      console.log('SMTP connection verified');
+    } catch (verifyErr) {
+      console.error('SMTP verify failed:', verifyErr);
+      return res.status(500).json({ message: 'Email service not available.' });
+    }
 
     const mailOptions = {
       from: email,
@@ -53,7 +64,8 @@ app.post("/send", async (req, res) => {
       `,
     };
 
-    await transporter.sendMail(mailOptions);
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email sent:', info && info.response ? info.response : info);
     res.json({ message: "Email sent successfully!" });
   } catch (err) {
     console.error("Error sending email:", err);
@@ -61,6 +73,33 @@ app.post("/send", async (req, res) => {
   }
 });
 
+// Temporary debug endpoint: reports whether SMTP env vars are set and whether
+// the server can verify an SMTP connection. Does not expose credentials.
+app.get('/__debug', async (req, res) => {
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const result = {
+    smtpUserSet: !!smtpUser,
+    smtpPassSet: !!smtpPass,
+  };
+
+  if (!smtpUser || !smtpPass) {
+    return res.json({ ...result, verified: false, message: 'SMTP env vars missing' });
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: smtpUser, pass: smtpPass },
+    });
+    await transporter.verify();
+    return res.json({ ...result, verified: true, message: 'SMTP verified' });
+  } catch (err) {
+    return res.json({ ...result, verified: false, error: err && err.message ? err.message : String(err) });
+  }
+});
+
+// Serve React app for any other route (keep after API routes so they are reachable)
 app.get("*", (req, res) => {
   res.sendFile(path.join(clientBuildPath, "index.html"));
 });
