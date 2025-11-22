@@ -1,6 +1,6 @@
 import express from "express";
 import nodemailer from "nodemailer";
-import sgMail from "@sendgrid/mail";
+import { google } from "googleapis";
 import bodyParser from "body-parser";
 import cors from "cors";
 import path from "path";
@@ -26,34 +26,62 @@ app.post("/send", async (req, res) => {
   }
 
   try {
-    // Prefer SendGrid if an API key is provided (recommended for production)
-    const sendGridKey = process.env.SENDGRID_API_KEY;
-    if (sendGridKey) {
-      sgMail.setApiKey(sendGridKey);
-      const fromAddress = process.env.SENDGRID_SENDER || process.env.SMTP_USER || 'no-reply@kanhasafaribooking.in';
-      const msg = {
-        to: "gojungleeadventures@gmail.com",
-        from: fromAddress,
-        replyTo: email,
-        subject: `New Visitor Entry from ${name}`,
-        html: `
-          <h2>Visitor Details</h2>
-          <p><strong>Name:</strong> ${name}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Mobile Number:</strong> ${number}</p>
-          <p><strong>Date of Visit:</strong> ${date}</p>
-        `,
-      };
+    // Gmail API via OAuth2 (works over HTTPS — avoids blocked SMTP ports on hosts)
+    const gmailClientId = process.env.GMAIL_CLIENT_ID;
+    const gmailClientSecret = process.env.GMAIL_CLIENT_SECRET;
+    const gmailRefreshToken = process.env.GMAIL_REFRESH_TOKEN;
+    const gmailUser = process.env.GMAIL_USER; // email address to use as sender
 
+    if (gmailClientId && gmailClientSecret && gmailRefreshToken && gmailUser) {
       try {
-        const resp = await sgMail.send(msg);
-        console.log('SendGrid send response:', resp && resp[0] && resp[0].statusCode ? resp[0].statusCode : resp);
-        return res.json({ message: 'Email sent successfully!' });
-      } catch (sgErr) {
-        console.error('SendGrid error:', sgErr && sgErr.message ? sgErr.message : sgErr);
-        // fall through to attempt SMTP if configured
+        const oAuth2Client = new google.auth.OAuth2(gmailClientId, gmailClientSecret);
+        oAuth2Client.setCredentials({ refresh_token: gmailRefreshToken });
+        // getAccessToken will use the refresh token to obtain a fresh access token
+        const accessTokenResponse = await oAuth2Client.getAccessToken();
+        const accessToken = accessTokenResponse && accessTokenResponse.token ? accessTokenResponse.token : null;
+
+        if (!accessToken) {
+          console.error('Unable to obtain Gmail access token');
+          // fall through to SMTP fallback if configured
+        } else {
+          const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
+          const html = `
+            <h2>Visitor Details</h2>
+            <p><strong>Name:</strong> ${name}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Mobile Number:</strong> ${number}</p>
+            <p><strong>Date of Visit:</strong> ${date}</p>
+          `;
+          const raw = [
+            `From: ${gmailUser}`,
+            `To: gojungleeadventures@gmail.com`,
+            `Reply-To: ${email}`,
+            `Subject: New Visitor Entry from ${name}`,
+            'Content-Type: text/html; charset=UTF-8',
+            '',
+            html,
+          ].join('\r\n');
+
+          const encoded = Buffer.from(raw)
+            .toString('base64')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+
+          await gmail.users.messages.send({
+            userId: 'me',
+            requestBody: { raw: encoded },
+          });
+
+          console.log('Email sent via Gmail API');
+          return res.json({ message: 'Email sent successfully!' });
+        }
+      } catch (gmailErr) {
+        console.error('Gmail API send error:', gmailErr && gmailErr.message ? gmailErr.message : gmailErr);
+        // fall through to SMTP fallback
       }
     }
+
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASS;
 
