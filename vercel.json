@@ -1,10 +1,18 @@
 {
+  "outputDirectory": "build",
   "builds": [
-    { "src": "client/package.json", "use": "@vercel/static-build", "config": { "distDir": "client/build" } },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build",
+        "buildCommand": "npm run build"
+      }
+    },
     { "src": "api/send.js", "use": "@vercel/node" }
   ],
   "routes": [
     { "src": "/send", "dest": "/api/send" },
-    { "src": "/(.*)", "dest": "/client/build/$1" }
+    { "src": "/(.*)", "dest": "/build/$1" }
   ]
 }

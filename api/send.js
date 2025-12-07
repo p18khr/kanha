@@ -3,6 +3,15 @@
 import { google } from 'googleapis';
 
 export default async function handler(req, res) {
+  if (req.method === 'GET') {
+    const present = {
+      GMAIL_CLIENT_ID: Boolean(process.env.GMAIL_CLIENT_ID),
+      GMAIL_CLIENT_SECRET: Boolean(process.env.GMAIL_CLIENT_SECRET),
+      GMAIL_REFRESH_TOKEN: Boolean(process.env.GMAIL_REFRESH_TOKEN),
+      GMAIL_USER: Boolean(process.env.GMAIL_USER),
+    };
+    return res.json({ ok: true, present });
+  }
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
   }

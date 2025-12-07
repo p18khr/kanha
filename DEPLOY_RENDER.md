@@ -62,3 +62,32 @@ git push -u origin main
 7) (Optional) Deploy client separately as a Static Site
 
 - If you prefer two Render services, create a Static Site for the `client` folder and a Web Service for the `server` folder. Then set the client to call the server's URL (replace `fetch('/send')` with the server full URL or use an env var at build time).
+
+## Vercel Backend + Render Frontend
+
+- Overview: Host the React client on Render and the `/send` email backend on Vercel.
+- Why: Works reliably for ad traffic; avoids SMTP blocks and sleeping.
+
+### Steps
+- Deploy backend to Vercel (already done)
+  - Ensure env vars on Vercel (Production & Preview):
+    - `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN`, `GMAIL_USER`.
+  - Production deploy: `vercel --prod`.
+
+- Point the client to Vercel
+  - Set client env on Render:
+    - `REACT_APP_API_URL=https://YOUR-VERCEL-URL.vercel.app`
+  - Client fetch uses: `${process.env.REACT_APP_API_URL}/send`.
+
+- Rebuild client on Render
+  - Trigger a redeploy in Render (or build locally):
+    - `cd client`
+    - `npm install`
+    - `npm run build`
+
+- Optional CORS
+  - To restrict origins, set `CORS_ORIGIN` on Vercel to your Render site origin and validate it in the API.
+
+- Verify
+  - Submit the form on the Render site.
+  - If errors, check Vercel logs: `vercel logs --since 1h`.

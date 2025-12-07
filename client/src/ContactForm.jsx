@@ -18,7 +18,8 @@ const ContactForm = () => {
     };
 
     try {
-      const response = await fetch("/send", {
+      const url = 'https://kanha-national-park-iclpjw3mm.vercel.app/api/send';
+      const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
