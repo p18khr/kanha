@@ -18,8 +18,9 @@ const ContactForm = () => {
     };
 
     try {
-      // Point to the backend Vercel function domain to avoid 404s
-      const url = 'https://kanha-national-park.vercel.app/api/send';
+      // Prefer configured API base; fallback to same-origin
+      const base = process.env.REACT_APP_API_URL?.replace(/\/$/, "") || "";
+      const url = `${base}/api/send`;
       const response = await fetch(url, {
         method: "POST",
         headers: {
