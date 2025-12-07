@@ -3,7 +3,26 @@
 import { google } from 'googleapis';
 
 export default async function handler(req, res) {
+  const allowedEnv = process.env.CORS_ORIGIN || process.env.CORS_ORIGINS || '';
+  const allowList = allowedEnv
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const setCors = () => {
+    // Emergency permissive CORS to unblock immediately
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+    res.setHeader('Access-Control-Max-Age', '86400');
+  };
+
+  if (req.method === 'OPTIONS') {
+    setCors();
+    return res.status(204).end();
+  }
   if (req.method === 'GET') {
+    setCors();
     const present = {
       GMAIL_CLIENT_ID: Boolean(process.env.GMAIL_CLIENT_ID),
       GMAIL_CLIENT_SECRET: Boolean(process.env.GMAIL_CLIENT_SECRET),
@@ -27,6 +46,7 @@ export default async function handler(req, res) {
   const gmailUser = process.env.GMAIL_USER;
 
   try {
+    setCors();
     if (!clientId || !clientSecret || !refreshToken || !gmailUser) {
       return res.status(500).json({ message: 'Email service not configured.' });
     }
