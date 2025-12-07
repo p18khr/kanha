@@ -18,8 +18,8 @@ const ContactForm = () => {
     };
 
     try {
-      // Use same-origin API to avoid CORS when hosted on Vercel
-      const url = '/api/send';
+      // Point to the backend Vercel function domain to avoid 404s
+      const url = 'https://kanha-national-park.vercel.app/api/send';
       const response = await fetch(url, {
         method: "POST",
         headers: {
