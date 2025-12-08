@@ -3,23 +3,16 @@
 import { google } from 'googleapis';
 
 export default async function handler(req, res) {
-  const allowedEnv = process.env.CORS_ORIGIN || process.env.CORS_ORIGINS || '';
-  const allowList = allowedEnv
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean);
-
-  const setCors = () => {
-    // Emergency permissive CORS to unblock immediately
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', '*');
-    res.setHeader('Access-Control-Max-Age', '86400');
-  };
+  const origin = (req.headers.origin || '').replace(/\/$/, '');
+  const configured = (process.env.CORS_ALLOW_ORIGIN || 'https://kanhasafaribooking.in').replace(/\/$/, '');
+  const allow = origin && origin === configured ? origin : configured;
+  res.setHeader('Access-Control-Allow-Origin', allow);
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Max-Age', '86400');
 
   if (req.method === 'OPTIONS') {
-    setCors();
-    return res.status(204).end();
+    return res.status(200).end();
   }
   if (req.method === 'GET') {
     setCors();
@@ -46,7 +39,6 @@ export default async function handler(req, res) {
   const gmailUser = process.env.GMAIL_USER;
 
   try {
-    setCors();
     if (!clientId || !clientSecret || !refreshToken || !gmailUser) {
       return res.status(500).json({ message: 'Email service not configured.' });
     }
