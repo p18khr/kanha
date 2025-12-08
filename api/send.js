@@ -1,28 +1,15 @@
-// Vercel serverless function to send email via Gmail API (OAuth2)
-// Expects env vars: GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_USER
-import { google } from 'googleapis';
+const { google } = require('googleapis');
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const origin = (req.headers.origin || '').replace(/\/$/, '');
   const configured = (process.env.CORS_ALLOW_ORIGIN || 'https://kanhasafaribooking.in').replace(/\/$/, '');
   const allow = origin && origin === configured ? origin : configured;
   res.setHeader('Access-Control-Allow-Origin', allow);
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Access-Control-Max-Age', '86400');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
-  }
-  if (req.method === 'GET') {
-    setCors();
-    const present = {
-      GMAIL_CLIENT_ID: Boolean(process.env.GMAIL_CLIENT_ID),
-      GMAIL_CLIENT_SECRET: Boolean(process.env.GMAIL_CLIENT_SECRET),
-      GMAIL_REFRESH_TOKEN: Boolean(process.env.GMAIL_REFRESH_TOKEN),
-      GMAIL_USER: Boolean(process.env.GMAIL_USER),
-    };
-    return res.json({ ok: true, present });
   }
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
@@ -33,18 +20,24 @@ export default async function handler(req, res) {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
-  const clientId = process.env.GMAIL_CLIENT_ID;
-  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
-  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
+  const gmailClientId = process.env.GMAIL_CLIENT_ID;
+  const gmailClientSecret = process.env.GMAIL_CLIENT_SECRET;
+  const gmailRefreshToken = process.env.GMAIL_REFRESH_TOKEN;
   const gmailUser = process.env.GMAIL_USER;
 
-  try {
-    if (!clientId || !clientSecret || !refreshToken || !gmailUser) {
-      return res.status(500).json({ message: 'Email service not configured.' });
-    }
+  if (!gmailClientId || !gmailClientSecret || !gmailRefreshToken || !gmailUser) {
+    return res.status(500).json({ message: 'Email service not configured.' });
+  }
 
-    const oAuth2Client = new google.auth.OAuth2(clientId, clientSecret);
-    oAuth2Client.setCredentials({ refresh_token: refreshToken });
+  try {
+    const oAuth2Client = new google.auth.OAuth2(gmailClientId, gmailClientSecret);
+    oAuth2Client.setCredentials({ refresh_token: gmailRefreshToken });
+    const accessTokenResponse = await oAuth2Client.getAccessToken();
+    const accessToken = accessTokenResponse && accessTokenResponse.token ? accessTokenResponse.token : null;
+
+    if (!accessToken) {
+      return res.status(500).json({ message: 'Unable to obtain Gmail access token.' });
+    }
 
     const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
     const html = `
@@ -75,7 +68,8 @@ export default async function handler(req, res) {
     await gmail.users.messages.send({ userId: 'me', requestBody: { raw: encoded } });
     return res.json({ message: 'Email sent successfully!' });
   } catch (err) {
-    console.error('Vercel send error:', err?.message || err);
-    return res.status(500).json({ message: 'Failed to send message. Please try again later.' });
+    const msg = err && err.message ? err.message : String(err);
+    console.error('Vercel Gmail API send error:', msg);
+    return res.status(500).json({ message: 'Failed to send message. Please try again later.', error: msg });
   }
 }

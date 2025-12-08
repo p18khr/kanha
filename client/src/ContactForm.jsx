@@ -18,11 +18,8 @@ const ContactForm = () => {
     };
 
     try {
-      // Prefer configured API base; default to alias if missing
-      const configured = process.env.REACT_APP_API_URL?.replace(/\/$/, "");
-      const defaultAlias = "https://kanha-national-park.vercel.app";
-      const base = configured || defaultAlias;
-      const url = `${base}/send`;
+      const baseUrl = process.env.REACT_APP_API_URL || "";
+      const url = `${baseUrl}/send`;
       const response = await fetch(url, {
         method: "POST",
         headers: {
