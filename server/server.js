@@ -5,6 +5,9 @@ import bodyParser from "body-parser";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -26,23 +29,20 @@ app.post("/send", async (req, res) => {
   }
 
   try {
-    // Gmail API via OAuth2 (works over HTTPS — avoids blocked SMTP ports on hosts)
     const gmailClientId = process.env.GMAIL_CLIENT_ID;
     const gmailClientSecret = process.env.GMAIL_CLIENT_SECRET;
     const gmailRefreshToken = process.env.GMAIL_REFRESH_TOKEN;
-    const gmailUser = process.env.GMAIL_USER; // email address to use as sender
+    const gmailUser = process.env.GMAIL_USER;
 
     if (gmailClientId && gmailClientSecret && gmailRefreshToken && gmailUser) {
       try {
         const oAuth2Client = new google.auth.OAuth2(gmailClientId, gmailClientSecret);
         oAuth2Client.setCredentials({ refresh_token: gmailRefreshToken });
-        // getAccessToken will use the refresh token to obtain a fresh access token
         const accessTokenResponse = await oAuth2Client.getAccessToken();
         const accessToken = accessTokenResponse && accessTokenResponse.token ? accessTokenResponse.token : null;
 
         if (!accessToken) {
           console.error('Unable to obtain Gmail access token');
-          // fall through to SMTP fallback if configured
         } else {
           const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
           const html = `
@@ -79,7 +79,6 @@ app.post("/send", async (req, res) => {
         }
       } catch (gmailErr) {
         console.error('Gmail API send error:', gmailErr && gmailErr.message ? gmailErr.message : gmailErr);
-        // fall through to SMTP fallback
       }
     }
 
@@ -132,33 +131,11 @@ app.post("/send", async (req, res) => {
   }
 });
 
-// Temporary debug endpoint: reports whether SMTP env vars are set and whether
-// the server can verify an SMTP connection. Does not expose credentials.
-app.get('/__debug', async (req, res) => {
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
-  const result = {
-    smtpUserSet: !!smtpUser,
-    smtpPassSet: !!smtpPass,
-  };
-
-  if (!smtpUser || !smtpPass) {
-    return res.json({ ...result, verified: false, message: 'SMTP env vars missing' });
-  }
-
-  try {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user: smtpUser, pass: smtpPass },
-    });
-    await transporter.verify();
-    return res.json({ ...result, verified: true, message: 'SMTP verified' });
-  } catch (err) {
-    return res.json({ ...result, verified: false, error: err && err.message ? err.message : String(err) });
-  }
+// Health check endpoint for UptimeRobot monitoring
+app.get("/__health", (req, res) => {
+  res.json({ ok: true, time: new Date().toISOString() });
 });
 
-// Serve React app for any other route (keep after API routes so they are reachable)
 app.get("*", (req, res) => {
   res.sendFile(path.join(clientBuildPath, "index.html"));
 });

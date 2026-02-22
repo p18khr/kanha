@@ -1,0 +1,11 @@
+# render.yaml — Kanha Safari
+# Do NOT put secrets here. Set env vars in Render Dashboard.
+
+services:
+  - type: web
+    name: kanha-safari
+    env: node
+    plan: starter
+    region: oregon
+    buildCommand: cd server && npm install && npm run build
+    startCommand: node server/server.js
