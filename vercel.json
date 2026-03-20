@@ -1,39 +1,17 @@
 {
-  "outputDirectory": "build",
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "build",
-        "buildCommand": "npm run build"
-      }
-    },
-    { "src": "api/send.js", "use": "@vercel/node" }
-  ],
-  "headers": [
-    {
-      "source": "/api/send",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "*" },
-        { "key": "Access-Control-Max-Age", "value": "86400" }
-      ]
+  "version": 2,
+  "buildCommand": "cd client && npm install && npm run build",
+  "outputDirectory": "client/build",
+  "functions": {
+    "api/send.js": {
+      "maxDuration": 30
     }
-    ,
-    {
-      "source": "/send",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "*" },
-        { "key": "Access-Control-Max-Age", "value": "86400" }
-      ]
-    }
-  ],
+  },
   "routes": [
-    { "src": "/send", "dest": "/api/send" },
-    { "src": "/(.*)", "dest": "/build/$1" }
+    { "src": "/api/send", "dest": "/api/send.js" },
+    { "src": "/send", "dest": "/api/send.js" },
+    { "src": "/static/(.*)", "dest": "/static/$1" },
+    { "src": "/(.*)\\..*", "dest": "/$1.$2" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
